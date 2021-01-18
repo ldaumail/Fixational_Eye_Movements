@@ -1,6 +1,7 @@
-%this script is intended to transfer all bhv files corresponding to the
+%this script is intended to transfer all bhv files from one hard drive to another.
+%.bhv files correspond to the
 %single units data analyzed in the previous analysis
-
+%Last updated: 1/18/2021 by Loic Daumail
 indexdir = 'C:\Users\daumail\Documents\LGN_data\single_units\s_potentials_analysis\analysis\';
 metafilename = load(strcat(indexdir, 'single_units_ns6_metadata.mat'));
 
