@@ -113,51 +113,77 @@ saveas(gcf,'C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adapt
 %}
 
 
-metadir = 'C:\Users\daumail\Documents\LGN_data\single_units\s_potentials_analysis\analysis\';
+%metadir = 'C:\Users\daumail\Documents\LGN_data\single_units\s_potentials_analysis\analysis\';
+%metafilename = load(strcat(metadir, 'single_units_ns6_metadata.mat'));
+
 indexdir = 'C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\analysis\';
 selected_trials_idx = load( [indexdir, 'stim_selected_trials_idx']);
-metafilename = load(strcat(metadir, 'single_units_ns6_metadata.mat'));
+concat_filenames = load( [indexdir, 'concat_filenames_completenames']);
 
-for i = 1:length(metafilename.ns6FileName)
-    if ~isempty(metafilename.ns6FileName{i,1})
-        underscore = strfind(metafilename.ns6FileName{i,1}, '_');
-        session = metafilename.ns6FileName{i,1};
-        session =  session(1:underscore(2)-1);
-        directory = strcat('C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\bhv_selected_units\',session,'\');
+%selected trials without spaces
+condSelectedTrialsIdx = struct();
 
-        BRdatafile = metafilename.ns6FileName{i,1};
-        filename   = [directory BRdatafile]; 
-        if exist(strcat(filename, '.bhv'),'file') 
-            eye_info = concatBHV(strcat(filename,'.bhv'));
+for n =1:length(selected_trials_idx.logicals)
+    if ~isempty(selected_trials_idx.logicals(n).idx)
+      condSelectedTrialsIdx.(strcat('x',erase(selected_trials_idx.logicals(n).penetration, 'matDE50_NDE0'))) = selected_trials_idx.logicals(n).idx;
+    end 
+end
 
+xfilenames = fieldnames(condSelectedTrialsIdx);
+cnt = 0;
+for i = 1:length(fieldnames(condSelectedTrialsIdx))
+    
+        xcluster = xfilenames{i};
+        cluster = xcluster(2:end);
+        underscore = strfind(cluster, '_');
+        session =  cluster(1:underscore(2)-1);
+        directory = strcat('C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\concat2_bhv_selected_units\',cluster,'\');
+
+        xBRdatafiles = concat_filenames.(xcluster);
+        eye_info =[];
+        all_codes = [];
+        all_times = [];
+        all_analogData =[];
+        for fn =1:length(xBRdatafiles)
+            xBRdatafile = xBRdatafiles{fn};
+            filename   = [directory xBRdatafile(2:end)]; 
+            if exist(strcat(filename, '.bhv'),'file') 
+                eye_info.(strcat(xBRdatafile,'_bhvfile')) = concatBHV(strcat(filename,'.bhv'));
+                all_codes = [all_codes, eye_info.(strcat(xBRdatafile,'_bhvfile')).CodeNumbers];
+                all_times = [all_codes, eye_info.(strcat(xBRdatafile,'_bhvfile')).CodeTimes];
+                all_analogData = [all_analogData,eye_info.(strcat(xBRdatafile,'_bhvfile')).AnalogData];
+            end
+            
+        end
             samplerate = 1000;
 
-
-
-             penetration_name = erase(selected_trials_idx.logicals(i).penetration, 'matDE50_NDE0');
-             STIM_file = load(['C:\Users\daumail\Documents\LGN_data\single_units\',penetration_name]);
-             trialindex = selected_trials_idx.logicals(i).idx;
-             %cnt =0;
+             %penetration_name = erase(selected_trials_idx.logicals(i).penetration, 'matDE50_NDE0');
+             %STIM_file = load(['C:\Users\daumail\Documents\LGN_data\single_units\',penetration_name]);
+             trialindex = condSelectedTrialsIdx.(xcluster);
+             
              ampl = [];
              veloc = [];
-
+            
+            try
              for tr = 1:length(trialindex)
-                 %try
-                 if trialindex(tr) <= length(eye_info.CodeNumbers)
-                     codes                 = eye_info.CodeNumbers{trialindex(tr)};
-                     times                 = eye_info.CodeTimes{trialindex(tr)};
+                 
+                 %if trialindex(tr) <= length(eye_info.CodeNumbers)
+                     codes                 = all_codes{trialindex(tr)};
+                     times                 = all_times{trialindex(tr)};
 
 
                      %timestamps = zeros(length( eye_info.AnalogData{1,1}.EyeSignal(:,1)),1);
                      %timestamps(trialindex) = trialindex;
                      if nnz(find( codes == 23))
                          samples = [];
-                         samples(:,1) = (-1*times(codes == 23)+1) : 1 : 0 : (length(eye_info.AnalogData{trialindex(tr)}.EyeSignal(:,1)) - times(codes == 23));
+                         
+                         
+                         samples(:,1) = (-1*times(codes == 23)+1) : 1 : 0 : (length(all_analogData{trialindex(tr)}.EyeSignal(:,1)) - times(codes == 23));
                          %(-1*times(codes == 23)+1) : 1 : 0 : (length(eye_info.AnalogData{1,1}.EyeSignal(:,1)) - times(codes == 23)); %timestamps of the recording in miliseconds
                          %1:length(eye_info.AnalogData{1,1}.EyeSignal(:,1)); %timestamps of the recording in miliseconds
                          if ~isempty(samples) 
-                             samples(:,2) = eye_info.AnalogData{trialindex(tr)}.EyeSignal(:,1); %horizontal position of the left eye in degrees
-                             samples(:,3) = eye_info.AnalogData{trialindex(tr)}.EyeSignal(:,2); %vertical position of the left eye in degrees 
+                             samples(:,2) = all_analogData{trialindex(tr)}.EyeSignal(:,1); %horizontal position of the left eye in degrees
+                             samples(:,3) = all_analogData{trialindex(tr)}.EyeSignal(:,2); %vertical position of the left eye in degrees 
                              samples(:,4) = nan();
                              samples(:,5) = nan();
                              blinks = zeros(length(samples(:,1)),1);
@@ -165,20 +191,23 @@ for i = 1:length(metafilename.ns6FileName)
 
                             % Runs the saccade detection
                             [saccades stats] = recording.FindSaccades();
-                   % catch
-                   %  cnt = cnt+1;
-                   % end
+
 
 
                             % Plots a main sequence
                             enum = ClusterDetection.SaccadeDetector.GetEnum;
                             ampl = [ampl; saccades(:,enum.amplitude)];
                             veloc = [veloc; saccades(:,enum.peakVelocity)];
+                            
                          end
                      end
-                 end
              end
+            catch
+                cnt = cnt+1;
+                disp(xBRdatafile)
+            end
 
+            
         figure();
         subplot(2,2,1)
         plot(ampl,veloc,'*')
@@ -187,6 +216,7 @@ for i = 1:length(metafilename.ns6FileName)
         xlim([0 2])
         title(session,'Interpreter', 'none')
         % Plots the traces with the labeled microsaccades
+        
                 if ~isempty(samples)
                     subplot(2,2,[3:4])
                     plot(samples(:,1), samples(:,2:end));
@@ -204,35 +234,133 @@ for i = 1:length(metafilename.ns6FileName)
 
                     legend({'Left Horiz', 'Left Vert', 'Right Horiz' , 'Right Vert', 'Microsaccades'})
                 end
+            
+
+       
+end
+    
+
+
+%% Look up power spectrum density for 2016 files 
+
+%metadir = 'C:\Users\daumail\Documents\LGN_data\single_units\s_potentials_analysis\analysis\';
+%metafilename = load(strcat(metadir, 'single_units_ns6_metadata.mat'));
+indexdir = 'C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\analysis\';
+selected_trials_idx = load( [indexdir, 'stim_selected_trials_idx']);
+
+cnt = 0;
+Ses = [];
+
+
+
+for i = 1:40
+    if ~isempty(metafilename.ns6FileName{i,1})
+        underscore = strfind(metafilename.ns6FileName{i,1}, '_');
+        session = metafilename.ns6FileName{i,1};
+        session =  session(1:underscore(2)-1);
+        directory = strcat('C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\bhv_selected_units\',session,'\');
+
+        BRdatafile = metafilename.ns6FileName{i,1};
+        filename   = [directory BRdatafile]; 
+        if exist(strcat(filename, '.bhv'),'file') 
+            eye_info = concatBHV(strcat(filename,'.bhv'));
+
+            samplerate = 1000;
+
+
+
+             %penetration_name = erase(selected_trials_idx.logicals(i).penetration, 'matDE50_NDE0');
+             %STIM_file = load(['C:\Users\daumail\Documents\LGN_data\single_units\',penetration_name]);
+             trialindex = selected_trials_idx.logicals(i).idx;
+             %cnt =0;
+             ampl = [];
+             veloc = [];
+            
+            %try
+             for tr = 1:length(trialindex)
+                 
+                 if trialindex(tr) <= length(eye_info.CodeNumbers)
+                     codes                 = eye_info.CodeNumbers{trialindex(tr)};
+                     times                 = eye_info.CodeTimes{trialindex(tr)};
+
+
+                      if nnz(find( codes == 23))
+                         samples = [];
+                         samples(:,1) = (-1*times(codes == 23)+1) : 1 : 0 : (length(eye_info.AnalogData{trialindex(tr)}.EyeSignal(:,1)) - times(codes == 23));
+                        
+                         if ~isempty(samples) 
+                             samples(:,2) = eye_info.AnalogData{trialindex(tr)}.EyeSignal(:,1); %horizontal position of the left eye in degrees
+                             samples(:,3) = eye_info.AnalogData{trialindex(tr)}.EyeSignal(:,2); %vertical position of the left eye in degrees 
+                            samples(:,4) = nan();
+                             samples(:,5) = nan();
+                             blinks = zeros(length(samples(:,1)),1);
+                             recording = ClusterDetection.EyeMovRecording.Create(directory, session, samples, blinks, samplerate);
+
+                            % Runs the saccade detection
+                            [saccades stats] = recording.FindSaccades();
+
+
+
+                            % Plots a main sequence
+                            enum = ClusterDetection.SaccadeDetector.GetEnum;
+                            ampl = [ampl; saccades(:,enum.amplitude)];
+                            veloc = [veloc; saccades(:,enum.peakVelocity)];
+                            
+                            fs     = abs(fft(samples(:,2))/length(samples(:,2))*2); 
+                            %strTrial = sprintf('Trial%d',tr);
+                            %filenb = sprintf('file%d', i);
+                            Ses(tr,1:200,i) = fs(1:200);
+                            
+
+                                                 
+                         end
+                     end
+                 end
+                
+             end
+             
+             
+         figure();
+         subplot(1,2,1)
+        plot(ampl,veloc,'*')
+        xlabel('Saccade amplitude (deg)');
+        ylabel('Saccade peak velocity (deg/s)');
+        xlim([0 2])
+         title(session,'Interpreter', 'none') 
+        subplot(1,2,2)
+         plot(mean(Ses(:,:,i),1));
+         %ylim([2 20]);
+
+         xlabel('Amplitude')
+         xlabel('Frequency band (Hz)')
+                
+             %}
+           % catch
+           %     cnt = cnt+1;
+           %     disp(BRdatafile)
+           % end
+
+            
+     
+
         end
     end
 end
 
+%% compare file names from code from 12-15-2020 (get_good_singleunits_ns6_filenames.m) with code from 1-22-2021 (get_concat_filenames.m)
+metadir = 'C:\Users\daumail\Documents\LGN_data\single_units\s_potentials_analysis\analysis\';
+oldfilenames = load(strcat(metadir, 'single_units_ns6_metadata.mat'));
 
-figure
-subplot(2,2,1)
-plot(saccades(:,enum.amplitude),saccades(:,enum.peakVelocity),'o')
-set(gca,'xlim',[0 1],'ylim',[0 100]);
-xlabel('Saccade amplitude (deg)');
-ylabel('Saccade peak velocity (deg/s)');
+ns6_filenames = oldfilenames.ns6FileName;
+fullCells = find(~cellfun('isempty', ns6_filenames));
+fullFilenames = ns6_filenames(fullCells);
 
-%{
-% Plots the traces with the labeled microsaccades
-subplot(2,2,[3:4])
-plot(samples(:,1), samples(:,2:end));
-hold
-yl = get(gca,'ylim');
-u1= zeros(size(samples(:,1)))+yl(1);
-u2= zeros(size(samples(:,1)))+yl(1);
-u1((saccades(:,enum.startIndex))) = yl(2);
-u2(saccades(:,enum.endIndex)) = yl(2);
-u = cumsum(u1)-cumsum(u2);
-plot(samples(:,1), u,'k')
-
-xlabel('Time (ms)');
-ylabel('Eye Position (deg)');
-
-legend({'Left Horiz', 'Left Vert', 'Right Horiz' , 'Right Vert', 'Microsaccades'})
-
+for i =1:length(fullFilenames)
+    filename = fullFilenames{i};
+    sessions{i} = filename(1:8);
 end
-%}
+uniqueStrCell(sessions)
+
+indexdir = 'C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\analysis\';
+newfilenames = load(strcat(indexdir,'concat_filenames.mat'));
+fieldnames(newfilenames)
