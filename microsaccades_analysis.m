@@ -117,8 +117,11 @@ saveas(gcf,'C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adapt
 %metafilename = load(strcat(metadir, 'single_units_ns6_metadata.mat'));
 
 indexdir = 'C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\analysis\';
-selected_trials_idx = load( [indexdir, 'stim_selected_trials_idx']);
-concat_filenames = load( [indexdir, 'concat_filenames_completenames']);
+selected_trials_idx = load( [indexdir, 'stim_selected_trials_idx']); %trial indices
+concat_filenames = load( [indexdir, 'concat_filenames_completenames']); %cluster filenames
+newdatadir = 'C:\Users\daumail\Documents\LGN_data\single_units\binocular_adaptation\all_units\';
+trialsTraces =load([newdatadir 'all_orig_bs_zscore_trials']); %neural data
+
 
 %selected trials without spaces
 condSelectedTrialsIdx = struct();
@@ -131,6 +134,7 @@ end
 
 xfilenames = fieldnames(condSelectedTrialsIdx);
 cnt = 0;
+eyeMovData = struct();
 for i = 1:length(fieldnames(condSelectedTrialsIdx))
     
         xcluster = xfilenames{i};
@@ -150,7 +154,7 @@ for i = 1:length(fieldnames(condSelectedTrialsIdx))
             if exist(strcat(filename, '.bhv'),'file') 
                 eye_info.(strcat(xBRdatafile,'_bhvfile')) = concatBHV(strcat(filename,'.bhv'));
                 all_codes = [all_codes, eye_info.(strcat(xBRdatafile,'_bhvfile')).CodeNumbers];
-                all_times = [all_codes, eye_info.(strcat(xBRdatafile,'_bhvfile')).CodeTimes];
+                all_times = [all_times, eye_info.(strcat(xBRdatafile,'_bhvfile')).CodeTimes];
                 all_analogData = [all_analogData,eye_info.(strcat(xBRdatafile,'_bhvfile')).AnalogData];
             end
             
@@ -192,22 +196,23 @@ for i = 1:length(fieldnames(condSelectedTrialsIdx))
                             % Runs the saccade detection
                             [saccades stats] = recording.FindSaccades();
 
-
-
                             % Plots a main sequence
                             enum = ClusterDetection.SaccadeDetector.GetEnum;
                             ampl = [ampl; saccades(:,enum.amplitude)];
                             veloc = [veloc; saccades(:,enum.peakVelocity)];
-                            
+                            eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr))).saccades = saccades;
+                            eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr))).enum = enum;
+                            eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr))).stats = stats;
                          end
                      end
              end
+             eyeMovData.(xcluster).cellclass = trialsTraces.peak_aligned_trials.(xcluster).cellclass;
             catch
                 cnt = cnt+1;
                 disp(xBRdatafile)
             end
 
-            
+%{            
         figure();
         subplot(2,2,1)
         plot(ampl,veloc,'*')
@@ -235,9 +240,12 @@ for i = 1:length(fieldnames(condSelectedTrialsIdx))
                     legend({'Left Horiz', 'Left Vert', 'Right Horiz' , 'Right Vert', 'Microsaccades'})
                 end
             
-
+%}
        
+           
 end
+savedir = 'C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\data\';
+save( [savedir, 'all_eye_movement_data', '.mat'],'-struct', 'eyeMovData'); %save eye movement data 
     
 
 
@@ -364,3 +372,146 @@ uniqueStrCell(sessions)
 indexdir = 'C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\analysis\';
 newfilenames = load(strcat(indexdir,'concat_filenames.mat'));
 fieldnames(newfilenames)
+
+%% Analyze eye movement data with neural data
+
+monodatadir = 'C:\Users\daumail\Documents\LGN_data\single_units\inverted_power_channels\good_single_units_data_4bumps_more\new_peak_alignment_anal\';
+neurfilename = [monodatadir 'su_peaks_03032020_corrected\all_units\clean_origin_sup_50'];
+neuralDat = load(strcat(neurfilename));
+indexdir = 'C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\analysis\';
+selected_trials_idx = load( [indexdir, 'stim_selected_trials_idx']); %trial indices
+% peak locations
+locsfilename = [monodatadir 'su_peaks_03032020_corrected\all_units\clean_SUA_locs'];
+peakLocs = load(strcat(locsfilename));
+
+condSelectedTrialsIdx = struct();
+condNeuralDat =struct();
+condPeakLocs = struct();
+for n =1:length(neuralDat.clean_origin_data)
+    if ~isempty(neuralDat.clean_origin_data(n).unit)
+        condSelectedTrialsIdx.(strcat('x',erase(selected_trials_idx.logicals(n).penetration, 'matDE50_NDE0'))) = selected_trials_idx.logicals(n).idx;
+        %use selected_trial_idx to get cluster filename for each single
+        %unit so the neural data is identifiable
+        condNeuralDat.(strcat('x',erase(selected_trials_idx.logicals(n).penetration, 'matDE50_NDE0'))) = neuralDat.clean_origin_data(n).unit;
+        condPeakLocs.(strcat('x',erase(selected_trials_idx.logicals(n).penetration, 'matDE50_NDE0'))) = peakLocs.peaks_locs(n).locs;
+    end
+end
+eyeMovDir = 'C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\data\';
+eyeMovDat = load( [eyeMovDir, 'all_eye_movement_data']); %eye movement data
+ 
+%% neural activity on the peaks before and after microsaccade onset
+
+
+%1) get eye movement locations of interest and store them relative to each
+%peak
+xfilenames = fieldnames(eyeMovDat);
+allSelectSaccLocs = struct();
+for i =1:length(fieldnames(eyeMovDat))
+    xcluster = xfilenames{i};
+    trialindex = condSelectedTrialsIdx.(xcluster);
+    selectSaccLocs = nan(6,6,length(trialindex));
+    
+    for tr = 1:length(trialindex)
+        clear trSaccLocs trPeakLocs
+        if isfield(eyeMovDat.(xcluster),sprintf('t%d',trialindex(tr)))
+            %get eye movement location (specify eye movement below 2 degrees..?)
+            saccades = eyeMovDat.(xcluster).(sprintf('t%d',trialindex(tr))).saccades;
+            enum = eyeMovDat.(xcluster).(sprintf('t%d',trialindex(tr))).enum;
+            trSaccLocs = saccades(:,enum.startIndex)+200;
+            %select eye movement locations within the peak spans (lets start
+            %with +-125)
+            trPeakLocs = condPeakLocs.(xcluster)(:,tr);%-200; %need to subtract 200 to peak location (or add 200 to msacc location) as the peak locations were estimated from trials that start 200 ms before stim onset (in get_clean_peaks_and_data.m)
+            for pl =1:length(trPeakLocs)
+                cnt =0;
+                for sl=1:length(trSaccLocs)
+                    if (trPeakLocs(pl)-125 <= trSaccLocs(sl)) && (trSaccLocs(sl)<= trPeakLocs(pl)+125)
+                     cnt =cnt+1;   
+                        selectSaccLocs(cnt,pl,tr) = trSaccLocs(sl); %dim1 =msacc location, dim2 = peak number, dim3=trial
+                    end
+                end
+            end
+            
+        end
+        
+    end
+    allSelectSaccLocs.(xcluster) = selectSaccLocs;
+end
+
+
+%2) Align neural data on microsaccade onset from  peak1 to peak 4
+aligned_trials = struct();
+for i =1:length(fieldnames(eyeMovDat))
+    xcluster = xfilenames{i};
+    nDat = condNeuralDat.(xcluster)(601:1900,:);
+    trialindex = condSelectedTrialsIdx.(xcluster);
+    
+    %MsaccLocked(:,ms,pn,n) = 
+    
+    up_dist_trials = nan(6,4,length(trialindex));%dim1 =msacc location, dim2 = peak number, dim3=trial
+    clear pn ms
+    for pn = 1:4
+        for ms =1:6
+    locs_msacc = allSelectSaccLocs.(xcluster)(ms,pn, :);
+    up_dist_trials(ms,pn,:)= length(nDat(:,1))- locs_msacc;
+        end
+    end
+    %get the max distance between the peakalign and the stimulus onset
+    max_low_dist_unit = max(allSelectSaccLocs.(xcluster),[],'all');
+    %create new matrix with the length(max(d)+max(xabs - d))
+    new_dist_unit = max_low_dist_unit + max(up_dist_trials,[],'all'); 
+    fp_locked_trials = nan(new_dist_unit,length(nDat(1,:)),6,4);
+    %filtered_fp_locked_trials = nan(new_dist_unit,length(filtered_dSUA(1,:)),4);
+     clear n ms pn
+     for pn =1:4
+         for ms =1:6
+           for n = 1:length(nDat(1,:))
+               if ~isnan(allSelectSaccLocs.(xcluster)(ms,pn,n))
+                  lower_unit_bound =max_low_dist_unit-allSelectSaccLocs.(xcluster)(ms,pn,n)+1;
+                  upper_unit_bound =max_low_dist_unit-allSelectSaccLocs.(xcluster)(ms,pn,n)+length(nDat(:,1));
+                  fp_locked_trials(lower_unit_bound:upper_unit_bound,n,ms,pn) = nDat(:,n); 
+               end
+           end
+
+     %mean_origin_dSUA.(xcluster)(ms,pn)=  nanmean(fp_locked_trials(:,:,ms,pn),2);
+         end
+     end
+    %get the aligned data if it exists for the unit 
+    aligned_trials.(xcluster)= fp_locked_trials;
+    max_low_dist.(xcluster) = max_low_dist_unit;
+    
+    
+end
+
+
+%%store all trials of a given peak, in a matrix, across all units
+%clear aligned_trials
+trials_dat = nan(1204,41, length(fieldnames(aligned_trials)));%Dim1 =length data that we wanna look at (+-125ms for each msacc) on 4 peaks,Dim2: 41 = max number of trials found in a unit in the variable aligned_trials
+
+
+clear i 
+for i = 1:length(fieldnames(aligned_trials))
+    xcluster = xfilenames{i};
+    if ~isnan(max_low_dist.(xcluster))
+        for tr = 1:length(aligned_trials.(xcluster)(1,:,1,1))
+            for pn = 1:4
+                for ms =1:6
+                    if ~isnan(aligned_trials.(xcluster)(:,tr,ms,pn))
+                        % aligned_trials(250*(pn-1)+1:250*pn+1,i)= mean(suas_trials(layer_idx(i)).aligned(max_low_dist(layer_idx(i))-125:max_low_dist(layer_idx(i))+125,:,pn),2);
+                        trials_dat(250*(pn-1)+1:250*pn+1,tr,i)= aligned_trials.(xcluster)(max_low_dist(xcluster)-1-124:max_low_dist(xcluster)+125,tr,ms,pn);
+                    end
+                end
+            end
+        end
+        %normalizing with max and min of each unit
+        %norm_aligned_trials(:,i) = (aligned_trials(:,i) - min(aligned_trials(:,i)))/(max(aligned_trials(:,i))-min(aligned_trials(:,i)));
+        
+    end
+end
+
+
+%compute change of firing rate 
+for i =1:42
+figure();
+
+plot(nanmean(trials_dat(:,:,i),2))
+end
