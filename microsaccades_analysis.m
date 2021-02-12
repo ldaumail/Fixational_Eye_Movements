@@ -135,7 +135,7 @@ end
 xfilenames = fieldnames(condSelectedTrialsIdx);
 cnt = 0;
 eyeMovData = struct();
-for i = 1:length(fieldnames(condSelectedTrialsIdx))
+for i = 26:length(fieldnames(condSelectedTrialsIdx))
     
         xcluster = xfilenames{i};
         cluster = xcluster(2:end);
@@ -167,7 +167,7 @@ for i = 1:length(fieldnames(condSelectedTrialsIdx))
              
              ampl = [];
              veloc = [];
-            
+             ntr =0; %number of trials in which microsaccades were detected
             try
              for tr = 1:length(trialindex)
                  
@@ -180,8 +180,6 @@ for i = 1:length(fieldnames(condSelectedTrialsIdx))
                      %timestamps(trialindex) = trialindex;
                      if nnz(find( codes == 23))
                          samples = [];
-                         
-                         
                          samples(:,1) = (-1*times(codes == 23)+1) : 1 : 0 : (length(all_analogData{trialindex(tr)}.EyeSignal(:,1)) - times(codes == 23));
                          %(-1*times(codes == 23)+1) : 1 : 0 : (length(eye_info.AnalogData{1,1}.EyeSignal(:,1)) - times(codes == 23)); %timestamps of the recording in miliseconds
                          %1:length(eye_info.AnalogData{1,1}.EyeSignal(:,1)); %timestamps of the recording in miliseconds
@@ -194,7 +192,7 @@ for i = 1:length(fieldnames(condSelectedTrialsIdx))
                              recording = ClusterDetection.EyeMovRecording.Create(directory, session, samples, blinks, samplerate);
 
                             % Runs the saccade detection
-                            [saccades stats] = recording.FindSaccades();
+                            [saccades, stats] = recording.FindSaccades();
 
                             % Plots a main sequence
                             enum = ClusterDetection.SaccadeDetector.GetEnum;
@@ -203,6 +201,11 @@ for i = 1:length(fieldnames(condSelectedTrialsIdx))
                             eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr))).saccades = saccades;
                             eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr))).enum = enum;
                             eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr))).stats = stats;
+                            eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr))).samples = samples;
+                            if ~all(isnan((saccades(:,enum.startIndex))))
+                                ntr =ntr+1;
+                            end
+                            
                          end
                      end
              end
@@ -212,40 +215,85 @@ for i = 1:length(fieldnames(condSelectedTrialsIdx))
                 disp(xBRdatafile)
             end
 
-%{            
-        figure();
-        subplot(2,2,1)
-        plot(ampl,veloc,'*')
+       %{   
+        figure('Renderer', 'painters', 'Position', [10 10 1000 1200]);
+        subplot(4,2,1)
+        plot(ampl,veloc,'o')
         xlabel('Saccade amplitude (deg)');
         ylabel('Saccade peak velocity (deg/s)');
+        set(gca,'box','off');
+        set(gca, 'linewidth',1)
         xlim([0 2])
-        title(session,'Interpreter', 'none')
+        title(strcat(sprintf('Microsaccades detected in %d trials',ntr)),'Interpreter', 'none')
         % Plots the traces with the labeled microsaccades
         
                 if ~isempty(samples)
-                    subplot(2,2,[3:4])
-                    plot(samples(:,1), samples(:,2:end));
+                    subplot(4,2,[3:4])
+                    plot(samples(:,1), samples(:,2:3),'linewidth',1);
                     hold
                     yl = get(gca,'ylim');
                     u1= zeros(size(samples(:,1)))+yl(1);
                     u2= zeros(size(samples(:,1)))+yl(1);
                     u1((saccades(:,enum.startIndex))) = yl(2);
                     u2(saccades(:,enum.endIndex)) = yl(2);
-                    u = cumsum(u1)-cumsum(u2);
-                    plot(samples(:,1), u,'k')
-
-                    xlabel('Time (ms)');
+                    u = (cumsum(u1)-cumsum(u2))/2;
+                    plot(samples(:,1), u,'k','linewidth',1)
+                    xlim([-200 1500])
+                    ylim([-20 20])
+                    set(gca,'XTickLabel',[]);
+                    set(gca,'box','off');
+                    set(gca, 'linewidth',1)
+                    ylabel('Eye Position (deg)');
+                    legend({'Left Horiz', 'Left Vert', 'Microsaccades'},'Location','bestoutside')
+                    
+                    
+                    subplot(4,2,[5:6])
+                    plot(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).samples(:,1),eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).samples(:,2:3),'linewidth',1)
+                    hold
+                    yl = get(gca,'ylim');
+                    u3= zeros(size(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).samples(:,1)))+yl(1);
+                    u4= zeros(size(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).samples(:,1)))+yl(1);
+                    u3((eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).saccades(:,eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).enum.startIndex))) = yl(2);
+                    u4(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).saccades(:,eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).enum.endIndex)) = yl(2);
+                    uu = (cumsum(u3)-cumsum(u4))/2;
+                    plot(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).samples(:,1), uu,'k','linewidth',1)
+                    xlim([-200 1500])
+                    ylim([-20 20])
+                    set(gca,'box','off');
+                    set(gca,'XTickLabel',[]);
+                    set(gca, 'linewidth',1)
+                    ylabel('Eye Position (deg)');
+                    legend({'Left Horiz', 'Left Vert', 'Microsaccades'},'Location','bestoutside')
+                    
+                    subplot(4,2,[7:8])
+                    plot(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).samples(:,1),eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).samples(:,2:3),'linewidth',1)
+                    hold
+                    yl = get(gca,'ylim');
+                    u5= zeros(size(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).samples(:,1)))+yl(1);
+                    u6= zeros(size(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).samples(:,1)))+yl(1);
+                    u5((eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).saccades(:,eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).enum.startIndex))) = yl(2);
+                    u6(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).saccades(:,eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).enum.endIndex)) = yl(2);
+                    uuu = (cumsum(u5)-cumsum(u6))/2;
+                    plot(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).samples(:,1), uuu,'k','linewidth',1)
+                    xlim([-200 1500])
+                    ylim([-20 20])
+                    set(gca,'box','off');
+                    set(gca, 'linewidth',1)
+                    xlabel('Time from stimulus onset (ms)');
                     ylabel('Eye Position (deg)');
 
-                    legend({'Left Horiz', 'Left Vert', 'Right Horiz' , 'Right Vert', 'Microsaccades'})
+                    legend({'Left Horiz', 'Left Vert', 'Microsaccades'},'Location','bestoutside')
                 end
+                saveas(gcf,strcat('C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\plots\main_sequence_eyeMovExamples',xcluster,'.png'));
+                saveas(gcf,strcat('C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\plots\main_sequence_eyeMovExamples',xcluster,'.svg'));
+
             
 %}
        
            
 end
 savedir = 'C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\data\';
-save( [savedir, 'all_eye_movement_data', '.mat'],'-struct', 'eyeMovData'); %save eye movement data 
+%save( [savedir, 'all_eye_movement_data', '.mat'],'-struct', 'eyeMovData'); %save eye movement data 
     
 
 
@@ -255,58 +303,96 @@ save( [savedir, 'all_eye_movement_data', '.mat'],'-struct', 'eyeMovData'); %save
 %metafilename = load(strcat(metadir, 'single_units_ns6_metadata.mat'));
 indexdir = 'C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\analysis\';
 selected_trials_idx = load( [indexdir, 'stim_selected_trials_idx']);
+concat_filenames = load( [indexdir, 'concat_filenames_completenames']); %cluster filenames
+condSelectedTrialsIdx = struct();
+
+for n =1:length(selected_trials_idx.logicals)
+    if ~isempty(selected_trials_idx.logicals(n).idx)
+      condSelectedTrialsIdx.(strcat('x',erase(selected_trials_idx.logicals(n).penetration, 'matDE50_NDE0'))) = selected_trials_idx.logicals(n).idx;
+    end 
+end
+
+xfilenames = fieldnames(condSelectedTrialsIdx);
 
 cnt = 0;
 Ses = [];
 
 
 
-for i = 1:40
-    if ~isempty(metafilename.ns6FileName{i,1})
-        underscore = strfind(metafilename.ns6FileName{i,1}, '_');
-        session = metafilename.ns6FileName{i,1};
-        session =  session(1:underscore(2)-1);
-        directory = strcat('C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\bhv_selected_units\',session,'\');
-
-        BRdatafile = metafilename.ns6FileName{i,1};
-        filename   = [directory BRdatafile]; 
-        if exist(strcat(filename, '.bhv'),'file') 
-            eye_info = concatBHV(strcat(filename,'.bhv'));
-
+for i = 1:length(fieldnames(condSelectedTrialsIdx))
+    
+        xcluster = xfilenames{i};
+        
+        cluster = xcluster(2:end);
+        underscore = strfind(cluster, '_');
+        session =  cluster(1:underscore(2)-1);
+        
+        directory = strcat('C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\concat2_bhv_selected_units\',cluster,'\');
+        xBRdatafiles = concat_filenames.(xcluster);
+        eye_info =[];
+        all_codes = [];
+        all_times = [];
+        all_analogData =[];
+        for fn =1:length(xBRdatafiles)
+            xBRdatafile = xBRdatafiles{fn};
+            filename   = [directory xBRdatafile(2:end)]; 
+            if exist(strcat(filename, '.bhv'),'file') 
+                eye_info.(strcat(xBRdatafile,'_bhvfile')) = concatBHV(strcat(filename,'.bhv'));
+                all_codes = [all_codes, eye_info.(strcat(xBRdatafile,'_bhvfile')).CodeNumbers];
+                all_times = [all_times, eye_info.(strcat(xBRdatafile,'_bhvfile')).CodeTimes];
+                all_analogData = [all_analogData,eye_info.(strcat(xBRdatafile,'_bhvfile')).AnalogData];
+            end
+            
+        end
+        %BRdatafile = concat_filenames.(xcluster);
+        %filename   = strcat(directory, BRdatafile(2:end)); 
+        %if exist(strcat(filename, '.bhv'),'file') 
+            %eye_info = concatBHV(strcat(filename,'.bhv'));
+            
             samplerate = 1000;
 
 
 
              %penetration_name = erase(selected_trials_idx.logicals(i).penetration, 'matDE50_NDE0');
              %STIM_file = load(['C:\Users\daumail\Documents\LGN_data\single_units\',penetration_name]);
-             trialindex = selected_trials_idx.logicals(i).idx;
+             %trialindex = selected_trials_idx.logicals(i).idx;
              %cnt =0;
              ampl = [];
              veloc = [];
-            
+            trialindex = condSelectedTrialsIdx.(xcluster);
+       
             %try
              for tr = 1:length(trialindex)
                  
                  if trialindex(tr) <= length(eye_info.CodeNumbers)
-                     codes                 = eye_info.CodeNumbers{trialindex(tr)};
-                     times                 = eye_info.CodeTimes{trialindex(tr)};
-
+                    % codes                 = eye_info.(xcluster).CodeNumbers{trialindex(tr)};
+                     %times                 = eye_info.(xcluster).CodeTimes{trialindex(tr)};
+                     codes                 = all_codes{trialindex(tr)};
+                     times                 = all_times{trialindex(tr)};
+                     
 
                       if nnz(find( codes == 23))
                          samples = [];
-                         samples(:,1) = (-1*times(codes == 23)+1) : 1 : 0 : (length(eye_info.AnalogData{trialindex(tr)}.EyeSignal(:,1)) - times(codes == 23));
+                         %samples(:,1) = (-1*times(codes == 23)+1) : 1 : 0 : (length(eye_info.AnalogData{trialindex(tr)}.EyeSignal(:,1)) - times(codes == 23));
+                         samples(:,1) = (-1*times(codes == 23)+1) : 1 : 0 : (length(all_analogData{trialindex(tr)}.EyeSignal(:,1)) - times(codes == 23));
                         
                          if ~isempty(samples) 
+                             %{
                              samples(:,2) = eye_info.AnalogData{trialindex(tr)}.EyeSignal(:,1); %horizontal position of the left eye in degrees
                              samples(:,3) = eye_info.AnalogData{trialindex(tr)}.EyeSignal(:,2); %vertical position of the left eye in degrees 
                             samples(:,4) = nan();
+                             samples(:,5) = nan();
+                             
+                            %}
+                             samples(:,2) = all_analogData{trialindex(tr)}.EyeSignal(:,1); %horizontal position of the left eye in degrees
+                             samples(:,3) = all_analogData{trialindex(tr)}.EyeSignal(:,2); %vertical position of the left eye in degrees 
+                             samples(:,4) = nan();
                              samples(:,5) = nan();
                              blinks = zeros(length(samples(:,1)),1);
                              recording = ClusterDetection.EyeMovRecording.Create(directory, session, samples, blinks, samplerate);
 
                             % Runs the saccade detection
                             [saccades stats] = recording.FindSaccades();
-
 
 
                             % Plots a main sequence
@@ -352,7 +438,7 @@ for i = 1:40
      
 
         end
-    end
+    
 end
 
 %% compare file names from code from 12-15-2020 (get_good_singleunits_ns6_filenames.m) with code from 1-22-2021 (get_concat_filenames.m)
@@ -374,7 +460,7 @@ newfilenames = load(strcat(indexdir,'concat_filenames.mat'));
 fieldnames(newfilenames)
 
 %% Analyze eye movement data with neural data
-
+%{
 monodatadir = 'C:\Users\daumail\Documents\LGN_data\single_units\inverted_power_channels\good_single_units_data_4bumps_more\new_peak_alignment_anal\';
 neurfilename = [monodatadir 'su_peaks_03032020_corrected\all_units\clean_origin_sup_50'];
 neuralDat = load(strcat(neurfilename));
@@ -451,11 +537,11 @@ for i =1:length(fieldnames(eyeMovDat))
     clear pn ms
     for pn = 1:4
         for ms =1:6
-    locs_msacc = allSelectSaccLocs.(xcluster)(ms,pn, :);
-    up_dist_trials(ms,pn,:)= length(nDat(:,1))- locs_msacc;
+            locs_msacc = allSelectSaccLocs.(xcluster)(ms,pn, :);
+            up_dist_trials(ms,pn,:)= length(nDat(:,1))- locs_msacc;
         end
     end
-    %get the max distance between the peakalign and the stimulus onset
+    %get the max distance between the saccalign and the stimulus onset
     max_low_dist_unit = max(allSelectSaccLocs.(xcluster),[],'all');
     %create new matrix with the length(max(d)+max(xabs - d))
     new_dist_unit = max_low_dist_unit + max(up_dist_trials,[],'all'); 
@@ -485,19 +571,17 @@ end
 
 %%store all trials of a given peak, in a matrix, across all units
 %clear aligned_trials
-trials_dat = nan(1204,41, length(fieldnames(aligned_trials)));%Dim1 =length data that we wanna look at (+-125ms for each msacc) on 4 peaks,Dim2: 41 = max number of trials found in a unit in the variable aligned_trials
-
-
+trials_dat = nan(251,6,41, length(fieldnames(aligned_trials)));%Dim1 =length data that we wanna look at (+-125ms for each msacc) on 4 peaks,Dim2: 41 = max number of trials found in a unit in the variable aligned_trials
 clear i 
 for i = 1:length(fieldnames(aligned_trials))
     xcluster = xfilenames{i};
-    if ~isnan(max_low_dist.(xcluster))
+    %if ~isnan(max_low_dist.(xcluster))
         for tr = 1:length(aligned_trials.(xcluster)(1,:,1,1))
             for pn = 1:4
                 for ms =1:6
-                    if ~isnan(aligned_trials.(xcluster)(:,tr,ms,pn))
+                    if ~all(isnan(aligned_trials.(xcluster)(:,tr,ms,pn)))
                         % aligned_trials(250*(pn-1)+1:250*pn+1,i)= mean(suas_trials(layer_idx(i)).aligned(max_low_dist(layer_idx(i))-125:max_low_dist(layer_idx(i))+125,:,pn),2);
-                        trials_dat(250*(pn-1)+1:250*pn+1,tr,i)= aligned_trials.(xcluster)(max_low_dist(xcluster)-1-124:max_low_dist(xcluster)+125,tr,ms,pn);
+                        trials_dat(1:251,ms,pn,tr,i)= aligned_trials.(xcluster)(max_low_dist.(xcluster)-1-124:max_low_dist.(xcluster)+125,tr,ms,pn);
                     end
                 end
             end
@@ -505,13 +589,187 @@ for i = 1:length(fieldnames(aligned_trials))
         %normalizing with max and min of each unit
         %norm_aligned_trials(:,i) = (aligned_trials(:,i) - min(aligned_trials(:,i)))/(max(aligned_trials(:,i))-min(aligned_trials(:,i)));
         
-    end
+    %end
 end
 
+for i =1:42
+
+
+msMean = squeeze(nanmean(trials_dat,2));
+pnMean = squeeze(nanmean(msMean,2));
+trMean = squeeze(nanmean(pnMean,2));
+
+figure();
+plot(trMean(:,i))
+vline(125)
+title(xfilenames{i},'Interpreter', 'none')
+end
 
 %compute change of firing rate 
 for i =1:42
 figure();
-
-plot(nanmean(trials_dat(:,:,i),2))
+xcluster = xfilenames{i};
+msMean = squeeze(nanmean(aligned_trials.(xcluster),3));
+pnMean = squeeze(nanmean(msMean,3));
+trMean = nanmean(pnMean,2);
+plot(trMean(max_low_dist.(xcluster)-1-124:max_low_dist.(xcluster)+125))
+xlabel('time (ms)')
+ylabel('Spike rate (spikes/sec)')
+vline(125)
+title(xfilenames{i},'Interpreter', 'none')
 end
+%}
+
+%% Example plot
+
+xcluster = xfilenames{31};
+        cluster = xcluster(2:end);
+        underscore = strfind(cluster, '_');
+        session =  cluster(1:underscore(2)-1);
+        directory = strcat('C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\concat2_bhv_selected_units\',cluster,'\');
+
+        xBRdatafiles = concat_filenames.(xcluster);
+        eye_info =[];
+        all_codes = [];
+        all_times = [];
+        all_analogData =[];
+        for fn =1:length(xBRdatafiles)
+            xBRdatafile = xBRdatafiles{fn};
+            filename   = [directory xBRdatafile(2:end)]; 
+            if exist(strcat(filename, '.bhv'),'file') 
+                eye_info.(strcat(xBRdatafile,'_bhvfile')) = concatBHV(strcat(filename,'.bhv'));
+                all_codes = [all_codes, eye_info.(strcat(xBRdatafile,'_bhvfile')).CodeNumbers];
+                all_times = [all_times, eye_info.(strcat(xBRdatafile,'_bhvfile')).CodeTimes];
+                all_analogData = [all_analogData,eye_info.(strcat(xBRdatafile,'_bhvfile')).AnalogData];
+            end
+            
+        end
+            samplerate = 1000;
+
+             %penetration_name = erase(selected_trials_idx.logicals(i).penetration, 'matDE50_NDE0');
+             %STIM_file = load(['C:\Users\daumail\Documents\LGN_data\single_units\',penetration_name]);
+             trialindex = condSelectedTrialsIdx.(xcluster);
+             
+             ampl = [];
+             veloc = [];
+             ntr =0; %number of trials in which microsaccades were detected
+            try
+             for tr = 1:length(trialindex)
+                 
+                 %if trialindex(tr) <= length(eye_info.CodeNumbers)
+                     codes                 = all_codes{trialindex(tr)};
+                     times                 = all_times{trialindex(tr)};
+
+
+                     %timestamps = zeros(length( eye_info.AnalogData{1,1}.EyeSignal(:,1)),1);
+                     %timestamps(trialindex) = trialindex;
+                     if nnz(find( codes == 23))
+                         samples = [];
+                         samples(:,1) = (-1*times(codes == 23)+1) : 1 : 0 : (length(all_analogData{trialindex(tr)}.EyeSignal(:,1)) - times(codes == 23));
+                         %(-1*times(codes == 23)+1) : 1 : 0 : (length(eye_info.AnalogData{1,1}.EyeSignal(:,1)) - times(codes == 23)); %timestamps of the recording in miliseconds
+                         %1:length(eye_info.AnalogData{1,1}.EyeSignal(:,1)); %timestamps of the recording in miliseconds
+                         if ~isempty(samples) 
+                             samples(:,2) = all_analogData{trialindex(tr)}.EyeSignal(:,1); %horizontal position of the left eye in degrees
+                             samples(:,3) = all_analogData{trialindex(tr)}.EyeSignal(:,2); %vertical position of the left eye in degrees 
+                             samples(:,4) = nan();
+                             samples(:,5) = nan();
+                             blinks = zeros(length(samples(:,1)),1);
+                             recording = ClusterDetection.EyeMovRecording.Create(directory, session, samples, blinks, samplerate);
+
+                            % Runs the saccade detection
+                            [saccades, stats] = recording.FindSaccades();
+
+                            % Plots a main sequence
+                            enum = ClusterDetection.SaccadeDetector.GetEnum;
+                            ampl = [ampl; saccades(:,enum.amplitude)];
+                            veloc = [veloc; saccades(:,enum.peakVelocity)];
+                            eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr))).saccades = saccades;
+                            eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr))).enum = enum;
+                            eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr))).stats = stats;
+                            eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr))).samples = samples;
+                            if ~all(isnan((saccades(:,enum.startIndex))))
+                                ntr =ntr+1;
+                            end
+                            
+                         end
+                     end
+             end
+             eyeMovData.(xcluster).cellclass = trialsTraces.peak_aligned_trials.(xcluster).cellclass;
+            catch
+                cnt = cnt+1;
+                disp(xBRdatafile)
+            end
+
+          
+        figure('Renderer', 'painters', 'Position', [10 10 1000 1200]);
+        subplot(4,2,1)
+        plot(ampl,veloc,'o')
+        xlabel('Saccade amplitude (deg)');
+        ylabel('Saccade peak velocity (deg/s)');
+        set(gca,'box','off');
+        set(gca, 'linewidth',1)
+        xlim([0 2])
+        title(strcat(sprintf('Microsaccades detected in %d trials',ntr)),'Interpreter', 'none')
+        % Plots the traces with the labeled microsaccades
+        
+                if ~isempty(samples)
+                    subplot(4,2,[3:4])
+                    plot(samples(:,1), samples(:,2:3),'linewidth',1);
+                    hold
+                    yl = get(gca,'ylim');
+                    u1= zeros(size(samples(:,1)))+yl(1);
+                    u2= zeros(size(samples(:,1)))+yl(1);
+                    u1((saccades(:,enum.startIndex))) = yl(2);
+                    u2(saccades(:,enum.endIndex)) = yl(2);
+                    u = (cumsum(u1)-cumsum(u2))/2;
+                    plot(samples(:,1), u,'k','linewidth',1)
+                    xlim([-200 1500])
+                    ylim([-20 20])
+                    set(gca,'XTickLabel',[]);
+                    set(gca,'box','off');
+                    set(gca, 'linewidth',1)
+                    ylabel('Eye Position (deg)');
+                    legend({'Left Horiz', 'Left Vert', 'Microsaccades'},'Location','bestoutside')
+                    
+                    
+                    subplot(4,2,[5:6])
+                    plot(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).samples(:,1),eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).samples(:,2:3),'linewidth',1)
+                    hold
+                    yl = get(gca,'ylim');
+                    u3= zeros(size(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).samples(:,1)))+yl(1);
+                    u4= zeros(size(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).samples(:,1)))+yl(1);
+                    u3((eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).saccades(:,eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).enum.startIndex))) = yl(2);
+                    u4(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).saccades(:,eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).enum.endIndex)) = yl(2);
+                    uu = (cumsum(u3)-cumsum(u4))/2;
+                    plot(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).samples(:,1), uu,'k','linewidth',1)
+                    xlim([-200 1500])
+                    ylim([-20 20])
+                    set(gca,'box','off');
+                    set(gca,'XTickLabel',[]);
+                    set(gca, 'linewidth',1)
+                    ylabel('Eye Position (deg)');
+                    legend({'Left Horiz', 'Left Vert', 'Microsaccades'},'Location','bestoutside')
+                    
+                    subplot(4,2,[7:8])
+                    plot(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).samples(:,1),eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).samples(:,2:3),'linewidth',1)
+                    hold
+                    yl = get(gca,'ylim');
+                    u5= zeros(size(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).samples(:,1)))+yl(1);
+                    u6= zeros(size(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).samples(:,1)))+yl(1);
+                    u5((eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).saccades(:,eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).enum.startIndex))) = yl(2);
+                    u6(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).saccades(:,eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).enum.endIndex)) = yl(2);
+                    uuu = (cumsum(u5)-cumsum(u6))/2;
+                    plot(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).samples(:,1), uuu,'k','linewidth',1)
+                    xlim([-200 1500])
+                    ylim([-20 20])
+                    set(gca,'box','off');
+                    set(gca, 'linewidth',1)
+                    xlabel('Time from stimulus onset (ms)');
+                    ylabel('Eye Position (deg)');
+
+                    legend({'Left Horiz', 'Left Vert', 'Microsaccades'},'Location','bestoutside')
+                end
+                saveas(gcf,strcat('C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\plots\main_sequence_eyeMovExamples',xcluster,'.png'));
+                saveas(gcf,strcat('C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\plots\main_sequence_eyeMovExamples',xcluster,'.svg'));
+
+            
