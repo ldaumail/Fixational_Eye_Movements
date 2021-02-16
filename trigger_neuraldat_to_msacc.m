@@ -1,10 +1,10 @@
 %This script attempts to align the neural data to microsaccade onset/offset times
 %Written by Loic Daumail -02-04-2021
 
-monodatadir = 'C:\Users\daumail\Documents\LGN_data\single_units\inverted_power_channels\good_single_units_data_4bumps_more\new_peak_alignment_anal\';
+monodatadir = 'C:\Users\daumail\OneDrive - Vanderbilt\Documents\LGN_data\single_units\inverted_power_channels\good_single_units_data_4bumps_more\new_peak_alignment_anal\';
 neurfilename = [monodatadir 'su_peaks_03032020_corrected\all_units\clean_origin_sup_50'];
 neuralDat = load(strcat(neurfilename));
-indexdir = 'C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\analysis\';
+indexdir = 'C:\Users\daumail\OneDrive - Vanderbilt\\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\analysis\';
 selected_trials_idx = load( [indexdir, 'stim_selected_trials_idx']); %trial indices
 % peak locations
 locsfilename = [monodatadir 'su_peaks_03032020_corrected\all_units\clean_SUA_locs'];
@@ -22,7 +22,7 @@ for n =1:length(neuralDat.clean_origin_data)
         condPeakLocs.(strcat('x',erase(selected_trials_idx.logicals(n).penetration, 'matDE50_NDE0'))) = peakLocs.peaks_locs(n).locs;
     end
 end
-eyeMovDir = 'C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\data\';
+eyeMovDir = 'C:\Users\daumail\OneDrive - Vanderbilt\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\data\';
 eyeMovDat = load( [eyeMovDir, 'all_eye_movement_data']); %eye movement data
  
 %% neural activity on the peaks before and after microsaccade onset
@@ -53,27 +53,30 @@ for i =1:length(fieldnames(eyeMovDat))
                 cntneg =0;
                 cntpos =0;
                 cnt =0;
+                amplitudes = saccades(:,enum.amplitude);
                 for sl=1:length(trSaccLocs)
-                    
-                    if (trPeakLocs(pl)-75 <= trSaccLocs(sl)) && (trSaccLocs(sl)<= trPeakLocs(pl)+75)
-                        cnt =cnt+1;
-                        selectSaccLocs(cnt,pl,tr) = trSaccLocs(sl); %dim1 =msacc location, dim2 = peak number, dim3=trial
-                        %control
-                        % rand = randi([trPeakLocs(pl)-75, trPeakLocs(pl)+75],1,1);
-                        %ControlselectSaccLocs(cnt,pl,tr) = rand;
-                    end
-                    
-                    if (trPeakLocs(pl)-75 <= trSaccLocs(sl)) && (trSaccLocs(sl)<= trPeakLocs(pl))
-                        cntneg =cntneg+1;
+                    if amplitudes(sl) >= 0.5 && amplitudes(sl) <= 2
                         
-                        negSaccLocs(cntneg,pl,tr) = trSaccLocs(sl); %dim1 =msacc location, dim2 = peak number, dim3=trial
+                        if (trPeakLocs(pl)-75 <= trSaccLocs(sl)) && (trSaccLocs(sl)<= trPeakLocs(pl)+75)
+                            cnt =cnt+1;
+                            selectSaccLocs(cnt,pl,tr) = trSaccLocs(sl); %dim1 =msacc location, dim2 = peak number, dim3=trial
+                            %control
+                            % rand = randi([trPeakLocs(pl)-75, trPeakLocs(pl)+75],1,1);
+                            %ControlselectSaccLocs(cnt,pl,tr) = rand;
+                        end
                         
-                    end
-                    if (trSaccLocs(sl)> trPeakLocs(pl)) && (trSaccLocs(sl)<= trPeakLocs(pl)+75)
-                        cntpos =cntpos+1;
-                        
-                        posSaccLocs(cntpos,pl,tr) = trSaccLocs(sl); %dim1 =msacc location, dim2 = peak number, dim3=trial
-                        
+                        if (trPeakLocs(pl)-75 <= trSaccLocs(sl)) && (trSaccLocs(sl)<= trPeakLocs(pl))
+                            cntneg =cntneg+1;
+                            
+                            negSaccLocs(cntneg,pl,tr) = trSaccLocs(sl); %dim1 =msacc location, dim2 = peak number, dim3=trial
+                            
+                        end
+                        if (trSaccLocs(sl)> trPeakLocs(pl)) && (trSaccLocs(sl)<= trPeakLocs(pl)+75)
+                            cntpos =cntpos+1;
+                            
+                            posSaccLocs(cntpos,pl,tr) = trSaccLocs(sl); %dim1 =msacc location, dim2 = peak number, dim3=trial
+                            
+                        end
                     end
                 end
                 
@@ -84,6 +87,11 @@ for i =1:length(fieldnames(eyeMovDat))
     allSelectSaccLocs.(xcluster).all = selectSaccLocs;
     allSelectSaccLocs.(xcluster).neg = negSaccLocs;
     allSelectSaccLocs.(xcluster).pos = posSaccLocs;
+    if isfield(eyeMovDat.(xcluster), 'cellclass')
+        allSelectSaccLocs.(xcluster).cellclass =  eyeMovDat.(xcluster).cellclass;
+    else
+        allSelectSaccLocs.(xcluster).cellclass = [];
+    end
 end
 
 %allSelectSaccLocs.(xcluster) = ControlselectSaccLocs;
@@ -195,7 +203,7 @@ xlabel('time (ms)')
 ylabel('Spike rate (spikes/sec)')
 h2 = vline(0);
 set(h2(1),'linewidth',1);
-title(xfilenames{i},'Interpreter', 'none')
+title(strcat(xfilenames{i}, sprintf(' Cell class: %s',allSelectSaccLocs.(xcluster).cellclass)),'Interpreter', 'none')
 
 %saveas(gcf,strcat('C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\plots\overall_mean_',sprintf('%s.png',xcluster(2:9))));
 end
