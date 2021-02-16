@@ -621,12 +621,30 @@ end
 %}
 
 %% Example plot
+indexdir = 'C:\Users\daumail\OneDrive - Vanderbilt\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\analysis\';
+selected_trials_idx = load( [indexdir, 'stim_selected_trials_idx']); %trial indices
+concat_filenames = load( [indexdir, 'concat_filenames_completenames']); %cluster filenames
+newdatadir = 'C:\Users\daumail\OneDrive - Vanderbilt\Documents\LGN_data\single_units\binocular_adaptation\all_units\';
+trialsTraces =load([newdatadir 'all_orig_bs_zscore_trials']); %neural data
 
+
+%selected trials without spaces
+condSelectedTrialsIdx = struct();
+
+for n =1:length(selected_trials_idx.logicals)
+    if ~isempty(selected_trials_idx.logicals(n).idx)
+      condSelectedTrialsIdx.(strcat('x',erase(selected_trials_idx.logicals(n).penetration, 'matDE50_NDE0'))) = selected_trials_idx.logicals(n).idx;
+    end 
+end
+
+xfilenames = fieldnames(condSelectedTrialsIdx);
+cnt = 0;
+eyeMovData = struct();
 xcluster = xfilenames{31};
         cluster = xcluster(2:end);
         underscore = strfind(cluster, '_');
         session =  cluster(1:underscore(2)-1);
-        directory = strcat('C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\concat2_bhv_selected_units\',cluster,'\');
+        directory = strcat('C:\Users\daumail\OneDrive - Vanderbilt\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\concat2_bhv_selected_units\',cluster,'\');
 
         xBRdatafiles = concat_filenames.(xcluster);
         eye_info =[];
@@ -721,10 +739,18 @@ xcluster = xfilenames{31};
                     u2= zeros(size(samples(:,1)))+yl(1);
                     u1((saccades(:,enum.startIndex))) = yl(2);
                     u2(saccades(:,enum.endIndex)) = yl(2);
-                    u = (cumsum(u1)-cumsum(u2))/2;
-                    plot(samples(:,1), u,'k','linewidth',1)
+                    uOri = (cumsum(u1)-cumsum(u2))/4;
+                    u =double(ischange(uOri));
+                    u(u ==0) = NaN;
+                    idc = find(~isnan(u));
+                    u(idc-1) =0;
+                    u(idc+1) =0;
+                    plot(samples(:,1), u*max(uOri),'k','linewidth',1)
+                    hold on
+                    uOri(uOri ==0) = NaN;
+                    plot(samples(:,1), uOri,'k','linewidth',1)
                     xlim([-200 1500])
-                    ylim([-20 20])
+                    ylim([-15 5])
                     set(gca,'XTickLabel',[]);
                     set(gca,'box','off');
                     set(gca, 'linewidth',1)
@@ -740,10 +766,18 @@ xcluster = xfilenames{31};
                     u4= zeros(size(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).samples(:,1)))+yl(1);
                     u3((eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).saccades(:,eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).enum.startIndex))) = yl(2);
                     u4(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).saccades(:,eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).enum.endIndex)) = yl(2);
-                    uu = (cumsum(u3)-cumsum(u4))/2;
-                    plot(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).samples(:,1), uu,'k','linewidth',1)
+                    uOri = (cumsum(u3)-cumsum(u4))/4;
+                    u =double(ischange(uOri));
+                    u(u ==0) = NaN;
+                    idc = find(~isnan(u));
+                    u(idc-1) =0;
+                    u(idc+1) =0;
+                    plot(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).samples(:,1), u*max(uOri),'k','linewidth',1)
+                    hold on
+                    uOri(uOri ==0) = NaN;
+                    plot(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-6))).samples(:,1), uOri,'k','linewidth',1)
                     xlim([-200 1500])
-                    ylim([-20 20])
+                    ylim([-15 5])
                     set(gca,'box','off');
                     set(gca,'XTickLabel',[]);
                     set(gca, 'linewidth',1)
@@ -758,10 +792,18 @@ xcluster = xfilenames{31};
                     u6= zeros(size(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).samples(:,1)))+yl(1);
                     u5((eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).saccades(:,eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).enum.startIndex))) = yl(2);
                     u6(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).saccades(:,eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).enum.endIndex)) = yl(2);
-                    uuu = (cumsum(u5)-cumsum(u6))/2;
-                    plot(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).samples(:,1), uuu,'k','linewidth',1)
-                    xlim([-200 1500])
-                    ylim([-20 20])
+                    uOri = (cumsum(u5)-cumsum(u6))/4;
+                    u =double(ischange(uOri));
+                    u(u ==0) = NaN;
+                    idc = find(~isnan(u));
+                    u(idc-1) =0;
+                    u(idc+1) =0;
+                    plot(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).samples(:,1), u*max(uOri),'k','linewidth',1)
+                    hold on
+                    uOri(uOri ==0) = NaN;
+                    plot(eyeMovData.(xcluster).(sprintf('t%d',trialindex(tr-4))).samples(:,1), uOri,'k','linewidth',1)
+                     xlim([-200 1500])
+                    ylim([-15 5])
                     set(gca,'box','off');
                     set(gca, 'linewidth',1)
                     xlabel('Time from stimulus onset (ms)');
@@ -769,7 +811,7 @@ xcluster = xfilenames{31};
 
                     legend({'Left Horiz', 'Left Vert', 'Microsaccades'},'Location','bestoutside')
                 end
-                saveas(gcf,strcat('C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\plots\main_sequence_eyeMovExamples',xcluster,'.png'));
-                saveas(gcf,strcat('C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\plots\main_sequence_eyeMovExamples',xcluster,'.svg'));
+                saveas(gcf,strcat('C:\Users\daumail\OneDrive - Vanderbilt\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\plots\main_sequence_eyeMovExamples',xcluster,'.png'));
+                saveas(gcf,strcat('C:\Users\daumail\OneDrive - Vanderbilt\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\plots\main_sequence_eyeMovExamples',xcluster,'.svg'));
 
             
