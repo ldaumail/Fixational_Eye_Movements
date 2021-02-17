@@ -23,7 +23,7 @@ for n =1:length(neuralDat.clean_origin_data)
     end
 end
 eyeMovDir = 'C:\Users\daumail\OneDrive - Vanderbilt\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\data\';
-eyeMovDat = load( [eyeMovDir, 'all_eye_movement_data']); %eye movement data
+eyeMovDat = load( [eyeMovDir, 'all_2018_eye_movement_data']); %eye movement data
  
 %% neural activity on the peaks before and after microsaccade onset
 
