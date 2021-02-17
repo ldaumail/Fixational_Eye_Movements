@@ -9,33 +9,33 @@ metafilename = load(strcat(indexdir, 'concat_filenames_completenames.mat'));
 
 clusters = fieldnames(metafilename);
 
- for i = 1:length(fieldnames(metafilename))
-     %Big Drobo 2 - Backup\Drobo2\data\rig021
-     %r1a\maierlab\DATA\NEUROPHYS\rig021\
-      %
-      xcluster = clusters{i};
-      underscore = strfind(xcluster, '_');
-      session =  xcluster(2:underscore(2)-1);
-     myFolder=strcat('D:\LGN_data_TEBA\rig022_2\', session);
-     if exist(myFolder, 'dir')
-mkdir(strcat('C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\concat2_bhv_selected_units\', xcluster(2:end)))
+for i = 1:length(fieldnames(metafilename))
+    %Big Drobo 2 - Backup\Drobo2\data\rig021
+    %r1a\maierlab\DATA\NEUROPHYS\rig021\
+    %
+    xcluster = clusters{i};
+    underscore = strfind(xcluster, '_');
+    session =  xcluster(2:underscore(2)-1);
+    myFolder=strcat('D:\LGN_data_TEBA\rig022_2\', session);
+    if exist(myFolder, 'dir')
+        mkdir(strcat('C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\concat02102021_bhv_selected_units\', xcluster(2:end)))
         for nf =1:length(metafilename.(xcluster))
             xbhvfilename = metafilename.(xcluster){nf};
             bhvfilename = xbhvfilename(2:end);
             sourcedir=strcat('D:\LGN_data_TEBA\rig022_2\', session, '\', bhvfilename);
-            destdir=strcat('C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\concat2_bhv_selected_units\', xcluster(2:end));
-
+            destdir=strcat('C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\concat02102021_bhv_selected_units\', xcluster(2:end));
+            
             status = copyfile( strcat(sourcedir,'.bhv'),  destdir);
             disp(bhvfilename)
         end
-     end
- end
+    end
+end
 
- 
- 
- %% Find missing files 160609_I_cinterocdrft013 and 180809_I_cinterocdrft002
- 
- %%160609_I_cinterocdrft013
+
+
+%% Find missing files 160609_I_cinterocdrft013 and 180809_I_cinterocdrft002
+
+%%160609_I_cinterocdrft013
  %session = '160609_I_cinterocdrft012';
  BRdatafile = '160609_I_cinterocdrft012';
  directory = 'D:\LGN_data_TEBA\rig021_2\160609_I\';
