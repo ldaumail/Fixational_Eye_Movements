@@ -14,3 +14,5 @@
 
 
 ### "trigger_neuraldat_to_msacc.m" was subsequently created to plot the neural data around microsaccade onset times 
+
+### Microsaccade quality check: plot the distribution of amplitudes to see whether the data is noisy (msacc_quality_check.m)
