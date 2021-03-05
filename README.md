@@ -17,4 +17,4 @@
 
 ### Microsaccade quality check: plot the distribution of amplitudes to see whether the data is noisy (msacc_quality_check.m)
 
-### Plotting electrooculograms below neural activity:
+### Plotting electrooculograms below neural activity for some trials: neural_activity_modulated_msacc_exploration.m
