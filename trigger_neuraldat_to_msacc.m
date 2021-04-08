@@ -23,7 +23,7 @@ for n =1:length(neuralDat.clean_origin_data)
     end
 end
 eyeMovDir = 'C:\Users\daumail\OneDrive - Vanderbilt\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\data\';
-eyeMovDat = load( [eyeMovDir, 'all_2018_eye_movement_data']); %eye movement data
+eyeMovDat = load( [eyeMovDir, 'all_eye_movement_data']); %eye movement data
  
 %% neural activity on the peaks before and after microsaccade onset
 
@@ -107,11 +107,52 @@ xfilenames = fieldnames(eyeMovDat);
 aligned_trials = struct();
 for i =1:length(fieldnames(eyeMovDat))
     xcluster = xfilenames{i};
-    if ~isempty(find(~all(isnan(allSelectSaccLocs.(xcluster).neg)),1))
+    if ~isempty(find(~all(isnan(allSelectSaccLocs.(xcluster).pos)),1))
         nDat = condNeuralDat.(xcluster)(401:1900,:);
         trialindex = condSelectedTrialsIdx.(xcluster);
         
-        %MsaccLocked(:,ms,pn,n) =
+        up_dist_trials = nan(6,4,length(trialindex));%dim1 =msacc location, dim2 = peak number, dim3=trial
+        clear pn ms
+        for pn = 1:4
+            for ms =1:6
+                locs_msacc = allSelectSaccLocs.(xcluster).pos(ms,pn, :);
+                up_dist_trials(ms,pn,:)= length(nDat(:,1))- locs_msacc;
+            end
+        end
+        %get the max distance between the saccalign and the stimulus onset
+        max_low_dist_unit = max(allSelectSaccLocs.(xcluster).pos,[],'all');
+        %create new matrix with the length(max(d)+max(xabs - d))
+        new_dist_unit = max_low_dist_unit + max(up_dist_trials,[],'all');
+        
+        if ~isnan(new_dist_unit)
+            fp_locked_trials = nan(new_dist_unit,length(nDat(1,:)),6,4);
+            %filtered_fp_locked_trials = nan(new_dist_unit,length(filtered_dSUA(1,:)),4);
+            clear n ms pn
+            for pn =1:4
+                for ms =1:6
+                    for n = 1:length(nDat(1,:))
+                        if ~isnan(allSelectSaccLocs.(xcluster).pos(ms,pn,n))
+                            lower_unit_bound =max_low_dist_unit-allSelectSaccLocs.(xcluster).pos(ms,pn,n)+1;
+                            upper_unit_bound =max_low_dist_unit-allSelectSaccLocs.(xcluster).pos(ms,pn,n)+length(nDat(:,1));
+                            fp_locked_trials(lower_unit_bound:upper_unit_bound,n,ms,pn) = nDat(:,n);
+                        end
+                    end
+
+                    %mean_origin_dSUA.(xcluster)(ms,pn)=  nanmean(fp_locked_trials(:,:,ms,pn),2);
+                end
+            end
+            %get the aligned data if it exists for the unit
+            aligned_trials.(xcluster).pos = fp_locked_trials;
+            max_low_dist.(xcluster).pos = max_low_dist_unit;
+            %mat_mld(i) = max_low_dist_unit;
+        end
+    end
+end
+for i =1:length(fieldnames(eyeMovDat))
+    xcluster = xfilenames{i};
+    if ~isempty(find(~all(isnan(allSelectSaccLocs.(xcluster).neg)),1))
+        nDat = condNeuralDat.(xcluster)(401:1900,:);
+        trialindex = condSelectedTrialsIdx.(xcluster);
         
         up_dist_trials = nan(6,4,length(trialindex));%dim1 =msacc location, dim2 = peak number, dim3=trial
         clear pn ms
@@ -128,7 +169,6 @@ for i =1:length(fieldnames(eyeMovDat))
         
         if ~isnan(new_dist_unit)
             fp_locked_trials = nan(new_dist_unit,length(nDat(1,:)),6,4);
-            %filtered_fp_locked_trials = nan(new_dist_unit,length(filtered_dSUA(1,:)),4);
             clear n ms pn
             for pn =1:4
                 for ms =1:6
@@ -139,27 +179,25 @@ for i =1:length(fieldnames(eyeMovDat))
                             fp_locked_trials(lower_unit_bound:upper_unit_bound,n,ms,pn) = nDat(:,n);
                         end
                     end
-
-                    %mean_origin_dSUA.(xcluster)(ms,pn)=  nanmean(fp_locked_trials(:,:,ms,pn),2);
                 end
             end
             %get the aligned data if it exists for the unit
-            aligned_trials.(xcluster)= fp_locked_trials;
-            max_low_dist.(xcluster) = max_low_dist_unit;
-            mat_mld(i) = max_low_dist_unit;
+            aligned_trials.(xcluster).neg = fp_locked_trials;
+            max_low_dist.(xcluster).neg = max_low_dist_unit;
+            %mat_mld(i) = max_low_dist_unit;
         end
     end
 end
 
 
 %%store all trials of a given peak, in a matrix, across all units
-%clear aligned_trials
-trials_dat = nan(251,6,4,41, length(fieldnames(aligned_trials)));%Dim1 =length data that we wanna look at (+-125ms for each msacc) on 4 peaks,Dim2: 41 = max number of trials found in a unit in the variable aligned_trials
-%control
-control_trials_dat = nan(251,6,4,41, length(fieldnames(aligned_trials)));
-min_mld = min(mat_mld);
-max_mld = max(mat_mld);
 
+neg_trials_dat = nan(251,6,4,41, length(fieldnames(aligned_trials)));%Dim1 =length data that we wanna look at (+-125ms for each msacc) on 4 peaks,Dim2: 41 = max number of trials found in a unit in the variable aligned_trials
+%control
+pos_trials_dat = nan(251,6,4,41, length(fieldnames(aligned_trials)));
+%control_trials_dat = nan(251,6,4,41, length(fieldnames(aligned_trials)));
+%min_mld = min(mat_mld);
+%max_mld = max(mat_mld);
 xfilenames = fieldnames(aligned_trials);
 clear i
 for i = 1:length(fieldnames(aligned_trials))
@@ -167,13 +205,14 @@ for i = 1:length(fieldnames(aligned_trials))
     if isfield(aligned_trials, xcluster)
         %if ~isnan(max_low_dist.(xcluster))
         try
-        for tr = 1:length(aligned_trials.(xcluster)(1,:,1,1))
+        for tr = 1:length(aligned_trials.(xcluster).neg(1,:,1,1))
             for pn = 1:4
                 for ms =1:6
                     %if ~all(isnan(aligned_trials.(xcluster)(:,tr,ms,pn)))
-                    if ~isempty(find(aligned_trials.(xcluster)(:,tr,ms,pn),1))
-                        trials_dat(1:251,ms,pn,tr,i)= aligned_trials.(xcluster)(max_low_dist.(xcluster)-1-124:max_low_dist.(xcluster)+125,tr,ms,pn);
-                       
+                    
+                    if ~isempty(find(aligned_trials.(xcluster).neg(:,tr,ms,pn),1))
+                        neg_trials_dat(1:251,ms,pn,tr,i)= aligned_trials.(xcluster).neg(max_low_dist.(xcluster).neg-1-124:max_low_dist.(xcluster).neg+125,tr,ms,pn);
+                        
                         %trials_dat(1:251,ms,pn,tr,i)= aligned_trials.(xcluster)(max_low_dist.(xcluster)-1-124:max_low_dist.(xcluster)+125,tr,ms,pn);
                         %control
                         %rand = randi([min_mld, 1375],1,1);
@@ -182,6 +221,17 @@ for i = 1:length(fieldnames(aligned_trials))
                 end
             end
         end
+        
+        for tr = 1:length(aligned_trials.(xcluster).pos(1,:,1,1))
+            for pn = 1:4
+                for ms =1:6
+                    if ~isempty(find(aligned_trials.(xcluster).pos(:,tr,ms,pn),1))
+                        pos_trials_dat(1:251,ms,pn,tr,i)= aligned_trials.(xcluster).pos(max_low_dist.(xcluster).pos-1-124:max_low_dist.(xcluster).pos+125,tr,ms,pn);
+                    end
+                end
+            end
+        end
+        
         catch
         end
         %normalizing with max and min of each unit
@@ -193,20 +243,23 @@ end
 
 %% Plots
 %plot mean of single units across all peaks
-reshTrialsDat = reshape(trials_dat,[251, 6*4*41,length(fieldnames(aligned_trials))]);
+reshPosTrialsDat = reshape(pos_trials_dat,[251, 6*4*41,length(fieldnames(aligned_trials))]);
+reshNegTrialsDat = reshape(neg_trials_dat,[251, 6*4*41,length(fieldnames(aligned_trials))]);
+
+reshTrialsDat = [reshPosTrialsDat, reshNegTrialsDat];
+
 xfilenames = fieldnames(aligned_trials);
 for i =1:length(xfilenames)
     xcluster = xfilenames{i};
     
     if isfield(aligned_trials, xcluster)
         
-        %msMean = squeeze(nanmean(trials_dat,2));
-        %pnMean = squeeze(nanmean(msMean,2));
-        %trMean = squeeze(nanmean(pnMean,2));
-        overallMean = nanmean(reshTrialsDat(:,:,i),2);
-        hi_ci = overallMean + 1.96*std(reshTrialsDat(:,:,i),[],2,'omitnan')/sqrt(length(~all(isnan(reshTrialsDat(1,:,i)))));
-        low_ci = overallMean - 1.96*std(reshTrialsDat(:,:,i),[],2,'omitnan')/sqrt(length(~all(isnan(reshTrialsDat(1,:,i)))));
-        figure();
+        figure('Renderer', 'painters', 'Position', [10 10 1000 1200]); 
+        subplot(3,2,1)
+        
+        overallMean = nanmean(reshNegTrialsDat(:,:,i),2);
+        hi_ci = overallMean + 1.96*std(reshNegTrialsDat(:,:,i),[],2,'omitnan')/sqrt(length(~all(isnan(reshNegTrialsDat(1,:,i)))));
+        low_ci = overallMean - 1.96*std(reshNegTrialsDat(:,:,i),[],2,'omitnan')/sqrt(length(~all(isnan(reshNegTrialsDat(1,:,i)))));
         plot([-125:125],overallMean)
         hold on
         h1= ciplot( hi_ci, low_ci,[-125:125],[40/255 40/255 40/255],0.1);
@@ -216,8 +269,81 @@ for i =1:length(xfilenames)
         h2 = vline(0);
         set(h2(1),'linewidth',1);
         title(strcat(xfilenames{i}, sprintf(' Cell class: %s',allSelectSaccLocs.(xcluster).cellclass)),'Interpreter', 'none')
+        
+        
+        subplot(3,2,2)
+        trspikechange = (reshNegTrialsDat(2:end,:,i) - reshNegTrialsDat(1:end-1,:,i))/(10^(-3));
+        overallMean = nanmean(reshNegTrialsDat(:,:,i),2);
+        spikechange = (overallMean(2:end)-overallMean(1:end-1))/(10^(-3));
+        hi_ci = spikechange + 1.96*std(trspikechange,[],2,'omitnan')/sqrt(length(~all(isnan(trspikechange(1,:)))));
+        low_ci = spikechange - 1.96*std(trspikechange,[],2,'omitnan')/sqrt(length(~all(isnan(trspikechange(1,:)))));
+        plot([-125:124],spikechange)
+        hold on
+        h1= ciplot( hi_ci, low_ci,[-125:124],[40/255 40/255 40/255],0.1);
+        set(h1, 'edgecolor','none')
+        xlabel('time from microsaccade onset(ms)')
+        ylabel('Spike rate change (spikes/sec^2)')
+        h2 = vline(0);
+        set(h2(1),'linewidth',1);
+       
+        subplot(3,2,3)
+        overallMean = nanmean(reshPosTrialsDat(:,:,i),2);
+        hi_ci = overallMean + 1.96*std(reshPosTrialsDat(:,:,i),[],2,'omitnan')/sqrt(length(~all(isnan(reshPosTrialsDat(1,:,i)))));
+        low_ci = overallMean - 1.96*std(reshPosTrialsDat(:,:,i),[],2,'omitnan')/sqrt(length(~all(isnan(reshPosTrialsDat(1,:,i)))));
+        plot([-125:125],overallMean)
+        hold on
+        h1= ciplot( hi_ci, low_ci,[-125:125],[40/255 40/255 40/255],0.1);
+        set(h1, 'edgecolor','none')
+        xlabel('time from microsaccade onset(ms)')
+        ylabel('Spike rate (spikes/sec)')
+        h2 = vline(0);
+        set(h2(1),'linewidth',1);
+        
+        subplot(3,2,4)
+        trspikechange = (reshPosTrialsDat(2:end,:,i) - reshPosTrialsDat(1:end-1,:,i))/(10^(-3));
+        overallMean = nanmean(reshPosTrialsDat(:,:,i),2);
+        spikechange = (overallMean(2:end)-overallMean(1:end-1))/(10^(-3));
+        hi_ci = spikechange + 1.96*std(trspikechange,[],2,'omitnan')/sqrt(length(~all(isnan(trspikechange(1,:)))));
+        low_ci = spikechange - 1.96*std(trspikechange,[],2,'omitnan')/sqrt(length(~all(isnan(trspikechange(1,:)))));
+        plot([-125:124],spikechange)
+        hold on
+        h1= ciplot( hi_ci, low_ci,[-125:124],[40/255 40/255 40/255],0.1);
+        set(h1, 'edgecolor','none')
+        xlabel('time from microsaccade onset(ms)')
+        ylabel('Spike rate change (spikes/sec^2)')
+        h2 = vline(0);
+        set(h2(1),'linewidth',1);
+        
+        subplot(3,2,5)
+        overallMean = nanmean(reshTrialsDat(:,:,i),2);
+        hi_ci = overallMean + 1.96*std(reshTrialsDat(:,:,i),[],2,'omitnan')/sqrt(length(~all(isnan(reshTrialsDat(1,:,i)))));
+        low_ci = overallMean - 1.96*std(reshTrialsDat(:,:,i),[],2,'omitnan')/sqrt(length(~all(isnan(reshTrialsDat(1,:,i)))));
+        plot([-125:125],overallMean)
+        hold on
+        h1= ciplot( hi_ci, low_ci,[-125:125],[40/255 40/255 40/255],0.1);
+        set(h1, 'edgecolor','none')
+        xlabel('time from microsaccade onset(ms)')
+        ylabel('Spike rate (spikes/sec)')
+        h2 = vline(0);
+        set(h2(1),'linewidth',1);
+        
+        
+        subplot(3,2,6)
+        trspikechange = (reshTrialsDat(2:end,:,i) - reshTrialsDat(1:end-1,:,i))/(10^(-3));
+        overallMean = nanmean(reshTrialsDat(:,:,i),2);
+        spikechange = (overallMean(2:end)-overallMean(1:end-1))/(10^(-3));
+        hi_ci = spikechange + 1.96*std(trspikechange,[],2,'omitnan')/sqrt(length(~all(isnan(trspikechange(1,:)))));
+        low_ci = spikechange - 1.96*std(trspikechange,[],2,'omitnan')/sqrt(length(~all(isnan(trspikechange(1,:)))));
+        plot([-125:124],spikechange)
+        hold on
+        h1= ciplot( hi_ci, low_ci,[-125:124],[40/255 40/255 40/255],0.1);
+        set(h1, 'edgecolor','none')
+        xlabel('time from microsaccade onset(ms)')
+        ylabel('Spike rate change (spikes/sec^2)')
+        h2 = vline(0);
+        set(h2(1),'linewidth',1);
     end
-%saveas(gcf,strcat('C:\Users\daumail\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\plots\overall_mean_',sprintf('%s.png',xcluster(2:9))));
+%saveas(gcf,strcat('C:\Users\daumail\OneDrive - Vanderbilt\Documents\LGN_data\single_units\microsaccades_adaptation_analysis\plots\spike_rate_change_mean_',sprintf('%s.png',xcluster(2:9))));
 end
 
 
@@ -237,13 +363,13 @@ title(xfilenames{i},'Interpreter', 'none')
 end
 %% Plot overall mean
 %reshTrialsDat = reshape(control_trials_dat,[251, 6*4*41,length(fieldnames(aligned_trials))]);
-NeurDat2D = reshape(reshTrialsDat(:,:,24:end),[251,6*4*41*19]); %only 2018 and over units
+NeurDat2D = reshape(reshPosTrialsDat(:,:,24:end),[251,6*4*41*19]); %only 2018 and over units
 %NeurDat2D = reshape(reshTrialsDat(:,:,24:end),[251,6*4*41*18]);%after
 %peaks, we loose one unit
 %NeurDat2D = reshape(reshTrialsDat,[251,6*4*41*42]); %all units
 overallMean = nanmean(NeurDat2D,2);
 hi_ci = overallMean + 1.96*std(NeurDat2D,[],2,'omitnan')/sqrt(length(~all(isnan(NeurDat2D(1,:)))));
-low_ci = overallMean - 1.96*std(reshTrialsDat(:,:,i),[],2,'omitnan')/sqrt(length(~all(isnan(NeurDat2D(1,:)))));
+low_ci = overallMean - 1.96*std(reshPosTrialsDat(:,:,i),[],2,'omitnan')/sqrt(length(~all(isnan(NeurDat2D(1,:)))));
 figure();
 plot([-125:125],overallMean)
 hold on
